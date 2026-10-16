@@ -1,0 +1,765 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rainbow Multiples</title>
+<meta name="description" content="An interactive hundred chart where nine color windows in every square show which numbers from 1 to 9 divide it. Built for young kids exploring multiplication.">
+<meta property="og:title" content="Rainbow Multiples">
+<meta property="og:description" content="Explore multiplication patterns in the numbers 1 to 100 with nine colors. In English and Spanish.">
+<meta name="theme-color" content="#f6f5fa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#15131c" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><rect x='1' y='1' width='8' height='8' rx='2' fill='%23e5484d'/><rect x='11' y='1' width='8' height='8' rx='2' fill='%23f5a03a'/><rect x='21' y='1' width='8' height='8' rx='2' fill='%23f2d33b'/><rect x='1' y='11' width='8' height='8' rx='2' fill='%2398d94a'/><rect x='11' y='11' width='8' height='8' rx='2' fill='%2340b38a'/><rect x='21' y='11' width='8' height='8' rx='2' fill='%2348b8c9'/><rect x='1' y='21' width='8' height='8' rx='2' fill='%234f7fe0'/><rect x='11' y='21' width='8' height='8' rx='2' fill='%238c5fd6'/><rect x='21' y='21' width='8' height='8' rx='2' fill='%23e0569b'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&display=swap">
+<style>
+/* Layout: the hundred chart is the hero on the left; a 3x3 keypad that mirrors every cell's nine windows drives it from the right (stacks above the grid on phones). */
+:root{
+  --bg:#f6f5fa; --surface:#ffffff; --fg:#1d1a29; --muted:#615c72; --line:#dcd9e6; --off:#ebe9f1;
+  --accent:#4f46c8; --on-color:#17141f; --shadow:0 1px 3px rgb(30 20 60 / .14);
+  --c1:oklch(0.66 0.20 27); --c2:oklch(0.75 0.17 55); --c3:oklch(0.87 0.17 95);
+  --c4:oklch(0.82 0.19 135); --c5:oklch(0.72 0.16 158); --c6:oklch(0.76 0.12 205);
+  --c7:oklch(0.64 0.15 255); --c8:oklch(0.63 0.17 300); --c9:oklch(0.70 0.19 345);
+  --font-display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --font-body:"Atkinson Hyperlegible",Verdana,"Segoe UI",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15131c; --surface:#1f1c29; --fg:#ecebf3; --muted:#a6a2b8; --line:#353140; --off:#2b2837;
+    --accent:#a39dff; --shadow:0 1px 3px rgb(0 0 0 / .5); color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15131c; --surface:#1f1c29; --fg:#ecebf3; --muted:#a6a2b8; --line:#353140; --off:#2b2837;
+  --accent:#a39dff; --shadow:0 1px 3px rgb(0 0 0 / .5); color-scheme:dark;
+}
+
+/* Page base for standalone hosting */
+html{-webkit-text-size-adjust:100%; text-size-adjust:100%; color-scheme:light}
+:root{padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none !important}
+button,label{touch-action:manipulation; -webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--fg); font-family:var(--font-body); font-size:15px; line-height:1.5;
+  padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px));
+  padding-block:20px 48px;
+}
+button{font-family:inherit}
+:focus-visible{outline:2.5px solid var(--accent); outline-offset:2px}
+
+.app{
+  max-width:1180px; margin:0 auto; display:grid; gap:16px;
+  grid-template-columns:minmax(0,1fr);
+  grid-template-areas:"head" "keys" "board" "info" "skip" "ideas";
+}
+.head{grid-area:head; display:grid; gap:10px}
+.keys-panel{grid-area:keys}
+.boardwrap{grid-area:board; min-width:0}
+.info{grid-area:info}
+.skip{grid-area:skip}
+.ideas{grid-area:ideas}
+@media (min-width:900px){
+  .app{
+    grid-template-columns:minmax(0,1fr) 340px; grid-template-rows:auto auto auto auto 1fr; column-gap:32px;
+    grid-template-areas:"head head" "board keys" "board info" "board skip" "board ideas";
+  }
+  .app{
+    --boardw:min(780px, max(440px, calc((100vh - 330px) * 1.1)));
+    --boardw:min(780px, max(440px, calc((100svh - 330px) * 1.1)));
+    grid-template-columns:minmax(0, var(--boardw)) 340px; justify-content:center;
+  }
+  .boardwrap{align-self:start}
+}
+@media (min-width:900px) and (min-height:740px){
+  .boardwrap{position:sticky; top:16px}
+}
+
+h1{
+  font:800 clamp(32px, 6vw, 52px)/1 var(--font-display); letter-spacing:-0.025em; margin:0; text-wrap:balance;
+}
+.stripe{display:flex; width:min(220px, 60%); height:7px; border-radius:4px; overflow:hidden}
+.stripe span{flex:1}
+.head p{margin:0; max-width:60ch; color:var(--muted)}
+h2{font:700 18px/1.2 var(--font-display); margin:0 0 10px}
+h3{font:700 19px/1.25 var(--font-display); margin:0 0 8px; text-wrap:balance}
+
+.panel{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:16px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.eyebrow{font:700 11px/1 var(--font-body); letter-spacing:.09em; text-transform:uppercase; color:var(--muted); margin:0 0 8px}
+
+/* Board */
+.board{
+  display:grid; grid-template-columns:22px repeat(10, minmax(0,1fr)); gap:3px; max-width:780px;
+}
+.corner{display:grid; place-items:center; font:800 15px/1 var(--font-display); color:var(--muted)}
+.hd{
+  appearance:none; border:0; background:transparent; color:var(--muted); cursor:pointer;
+  font:700 11px/1 var(--font-body); font-variant-numeric:tabular-nums;
+  border-radius:5px; min-height:24px; padding:0; display:grid; place-items:center;
+}
+.hd:hover{color:var(--fg); background:var(--off)}
+.hd[aria-pressed="true"]{background:var(--fg); color:var(--bg)}
+.cell{
+  appearance:none; border:1px solid var(--line); background:var(--surface); color:var(--fg);
+  border-radius:7px; padding:3px; display:flex; flex-direction:column; gap:2px; cursor:pointer; min-width:0;
+  transition:opacity .2s ease, transform .2s ease;
+}
+.cell:hover{border-color:var(--muted)}
+.num{font:700 clamp(9px, 2.3vw, 15px)/1.15 var(--font-body); text-align:center; font-variant-numeric:tabular-nums}
+.win{display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr); gap:1px; aspect-ratio:1; width:100%}
+.win i{background:var(--off); border-radius:2px; min-width:0}
+.hide-nums .num{display:none}
+.cell.dim{opacity:.14}
+.cell.sel{outline:2.5px solid var(--fg); outline-offset:1px}
+.cell.now{outline:2.5px solid var(--fg); outline-offset:1px; animation:pop .45s ease-out}
+@keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.28)}100%{transform:scale(1)}}
+.board-hint{margin:10px 0 0; font-size:13px; color:var(--muted)}
+@media (max-width:520px){
+  .board{gap:2px; grid-template-columns:17px repeat(10, minmax(0,1fr))}
+  .cell{padding:2px; border-radius:5px}
+  .hd{font-size:10px}
+}
+
+/* Keypad and options */
+.keys-wrap{display:flex; flex-wrap:wrap; gap:16px; align-items:flex-start}
+.keypad{display:grid; grid-template-columns:repeat(3,48px); grid-auto-rows:48px; gap:6px}
+.key{
+  appearance:none; border:2px solid var(--ck); border-radius:10px; background:var(--surface); color:var(--fg);
+  font:800 20px/1 var(--font-display); cursor:pointer; display:grid; place-items:center; align-content:center; gap:3px; padding:0;
+}
+.key small{font:700 8.5px/1 var(--font-body); letter-spacing:.05em; text-transform:uppercase; color:var(--muted)}
+.key[aria-pressed="true"]{background:var(--ck); color:var(--on-color)}
+.key[aria-pressed="true"] small{color:var(--on-color); opacity:.7}
+@media (max-width:380px){
+  .keypad{grid-template-columns:repeat(3,44px); grid-auto-rows:44px; gap:5px}
+  .keys-wrap{gap:12px; flex-wrap:nowrap}
+  .opts{flex:1 1 auto; gap:8px}
+  .pair{flex-wrap:wrap}
+  .pair .btn{flex:1 1 60px; padding:7px 6px}
+  .panel{padding:14px}
+}
+@media (min-width:900px){.keypad{grid-template-columns:repeat(3,54px); grid-auto-rows:54px}}
+.opts{flex:1 1 150px; min-width:0; display:grid; gap:10px; align-content:start}
+.pair{display:flex; gap:6px}
+.btn{
+  appearance:none; border:1px solid var(--line); background:var(--surface); color:var(--fg); border-radius:8px;
+  padding:7px 10px; font:700 13px/1.2 var(--font-body); cursor:pointer; flex:1;
+}
+.btn:hover{border-color:var(--muted)}
+.seg{display:flex; gap:3px; padding:3px; border-radius:9px; background:var(--off)}
+.seg button{
+  flex:1; appearance:none; border:0; background:transparent; color:var(--muted); border-radius:6px;
+  padding:7px 4px; font:700 13px/1.2 var(--font-body); cursor:pointer;
+}
+.seg button[aria-pressed="true"]{background:var(--surface); color:var(--fg); box-shadow:var(--shadow)}
+.switch{display:flex; align-items:center; gap:8px; font-size:14px; cursor:pointer}
+.switch input{width:18px; height:18px; accent-color:var(--accent); margin:0}
+.link{appearance:none; border:0; background:none; color:var(--accent); font:700 13px/1.2 var(--font-body); padding:2px 0; cursor:pointer; justify-self:start; text-decoration:underline; text-underline-offset:3px}
+
+/* Info panel */
+.info{min-height:170px}
+.big{display:flex; align-items:center; gap:12px; font:800 56px/1 var(--font-display); font-variant-numeric:tabular-nums; margin:0 0 4px}
+.big .sw{width:22px; height:22px; border-radius:6px; background:var(--ck)}
+.lead{font-weight:700; margin:0 0 12px}
+.info p{margin:0 0 10px}
+.info p:last-child{margin-bottom:0}
+.chip{
+  display:inline-grid; place-items:center; width:24px; height:24px; border-radius:6px; flex:none;
+  background:var(--ck); color:var(--on-color); font:800 13px/1 var(--font-display); vertical-align:middle;
+}
+.chips{display:inline-flex; flex-wrap:wrap; gap:4px; vertical-align:middle}
+.facts{list-style:none; margin:0 0 12px; padding:0; display:grid; gap:6px}
+.facts li{display:flex; align-items:center; gap:10px}
+.facts li.off{opacity:.45}
+.facts em{font-style:normal; color:var(--muted); font-size:13px}
+.note{background:var(--off); border-radius:10px; padding:10px 12px}
+.dots{display:grid; grid-template-columns:repeat(var(--cols), 9px); gap:4px; margin:4px 0 6px}
+.dots i{width:9px; height:9px; border-radius:50%; background:var(--accent)}
+.bars{display:grid; gap:5px; margin-top:6px}
+.bar-row{display:grid; grid-template-columns:24px 1fr 22px; gap:8px; align-items:center; font-variant-numeric:tabular-nums; font-size:13px; font-weight:700}
+.bar-row.off{opacity:.4}
+.track{height:10px; background:var(--off); border-radius:5px; overflow:hidden}
+.fill{display:block; height:100%; background:var(--ck); border-radius:5px}
+.seq{font-variant-numeric:tabular-nums; font-weight:700; word-break:break-word}
+
+/* Skip count */
+.skipkeys{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px}
+.sk{
+  appearance:none; width:40px; height:40px; border-radius:50%; border:2px solid var(--ck); background:var(--surface);
+  color:var(--fg); font:800 16px/1 var(--font-display); cursor:pointer; padding:0;
+}
+.sk[aria-pressed="true"]{background:var(--ck); color:var(--on-color)}
+.stoprow{margin-top:12px; display:flex}
+.stoprow .btn{flex:0 0 auto}
+
+/* Ideas */
+.idea-list{list-style:none; margin:0; padding:0; display:grid}
+.idea-list li{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:center; padding:10px; border-radius:10px}
+.idea-list li + li{border-top:1px solid var(--line)}
+.idea-list li.on{background:var(--off); border-top-color:transparent}
+.idea-list li.on + li{border-top-color:transparent}
+.idea-list p{margin:0; font-weight:700; font-size:14px}
+.idea-list .btn{flex:none; white-space:nowrap}
+.idea-list li.on .btn{background:var(--fg); color:var(--bg); border-color:var(--fg)}
+
+/* Phone and tablet: summary bar so a tap is never answered off screen */
+.peek{
+  position:fixed; left:0; right:0; bottom:0; z-index:20; display:flex; align-items:center; gap:12px;
+  background:var(--surface); border-top:1px solid var(--line); box-shadow:0 -6px 18px rgb(20 10 40 / .14);
+  padding-top:10px; padding-bottom:calc(10px + env(safe-area-inset-bottom, 0px));
+  padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px));
+}
+.peek-main{flex:1; min-width:0; display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-weight:700}
+.peek-main .n{font:800 26px/1 var(--font-display); font-variant-numeric:tabular-nums}
+.peek .btn{flex:none}
+@media (max-width:899px){ body{padding-bottom:96px} }
+@media (min-width:900px){ .peek{display:none !important} }
+
+@media (prefers-reduced-motion:reduce){
+  *{animation:none !important; transition:none !important}
+}
+/* Header with language switch */
+.title-row{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px 20px}
+.lang{flex:none}
+.lang button{padding:7px 12px}
+:lang(es) .key small{font-size:7.5px; letter-spacing:0}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="head">
+    <div class="title-row">
+      <h1 data-i18n="title">Rainbow Multiples</h1>
+      <div class="seg lang" role="group" id="lang" aria-label="Language">
+        <button type="button" id="lang-en" data-lang="en" lang="en">English</button>
+        <button type="button" id="lang-es" data-lang="es" lang="es">Español</button>
+      </div>
+    </div>
+    <div class="stripe" aria-hidden="true">
+      <span style="background:var(--c1)"></span><span style="background:var(--c2)"></span><span style="background:var(--c3)"></span>
+      <span style="background:var(--c4)"></span><span style="background:var(--c5)"></span><span style="background:var(--c6)"></span>
+      <span style="background:var(--c7)"></span><span style="background:var(--c8)"></span><span style="background:var(--c9)"></span>
+    </div>
+    <p data-i18n="intro"></p>
+  </header>
+
+  <section class="panel keys-panel" aria-labelledby="keys-h">
+    <h2 id="keys-h" data-i18n="colors"></h2>
+    <div class="keys-wrap">
+      <div class="keypad" id="keypad" role="group"></div>
+      <div class="opts">
+        <div class="pair">
+          <button class="btn" id="all" type="button" data-i18n="allOn"></button>
+          <button class="btn" id="none" type="button" data-i18n="allOff"></button>
+        </div>
+        <div class="seg" role="group" id="layout-seg">
+          <button type="button" id="lay-hundred" data-layout="hundred" data-i18n="hundred"></button>
+          <button type="button" id="lay-times" data-layout="times" data-i18n="times"></button>
+        </div>
+        <label class="switch"><input type="checkbox" id="nums" checked> <span data-i18n="showNums"></span></label>
+        <button class="link" id="reset" type="button" data-i18n="startOver"></button>
+      </div>
+    </div>
+  </section>
+
+  <div class="boardwrap" id="boardwrap">
+    <div class="board" id="board"></div>
+    <p class="board-hint" data-i18n="hint"></p>
+  </div>
+
+  <section class="panel info" id="info" aria-live="polite"></section>
+
+  <section class="panel skip" aria-labelledby="skip-h">
+    <h2 id="skip-h" data-i18n="skipTitle"></h2>
+    <p class="muted small" style="margin:0" data-i18n="skipDesc"></p>
+    <div class="skipkeys" id="skipkeys" role="group"></div>
+    <div class="stoprow"><button class="btn" id="stop" type="button" hidden></button></div>
+  </section>
+
+  <div class="peek" id="peek" hidden>
+    <div class="peek-main" id="peek-main"></div>
+    <button class="btn" id="peek-go" type="button"></button>
+  </div>
+
+  <section class="panel ideas" aria-labelledby="ideas-h">
+    <h2 id="ideas-h" data-i18n="ideasTitle"></h2>
+    <ul class="idea-list" id="ideas"></ul>
+  </section>
+</div>
+
+<script>
+const K = [1,2,3,4,5,6,7,8,9];
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const isPrime = n => { if (n < 2) return false; for (let d = 2; d * d <= n; d++) if (n % d === 0) return false; return true; };
+const joinList = (a, word) => a.length < 2 ? String(a[0]) : a.slice(0, -1).join(', ') + ` ${word} ` + a[a.length - 1];
+const chip = k => `<span class="chip" style="--ck:var(--c${k})">${k}</span>`;
+const plural = (n, one, many) => n === 1 ? one : many;
+
+/* All words on the page, in both languages */
+const STR = {
+  en: {
+    title:'Rainbow Multiples',
+    intro:'Every square has nine little windows, one for each number from 1 to 9. A window lights up when you can skip count by that number and land exactly on the big number.',
+    colors:'Colors', keypadLabel:'Turn colors on or off', allOn:'All on', allOff:'All off',
+    layoutLabel:'Grid layout', hundred:'1 to 100', times:'Times table', showNums:'Show numbers', startOver:'Start over',
+    hint:'Tap a square to see why it lights up. Tap the labels on the top or side to follow a row or column.',
+    skipTitle:'Skip count', skipDesc:'Pick a number and watch it hop across the grid.', skipLabel:'Skip count by',
+    stop:'Stop', clear:'Clear', more:'More ↓', ideasTitle:'Things to notice', showMe:'Show me', showing:'Showing', langLabel:'Language',
+    names:['red','orange','yellow','lime','green','teal','blue','purple','pink'],
+    colAria:(c, hund) => hund ? `Column ${c}` : `Times ${c} column`,
+    rowAria:(r, hund) => hund ? `Row ${r * 10 + 1} to ${r * 10 + 10}` : `Times ${r + 1} row`,
+    cellAria:(v, lit) => `${v}. ${lit.length ? 'Lit: ' + lit.join(', ') : 'No colors lit'}`,
+    skipAria:k => `Skip count by ${k}`,
+    howEyebrow:'How to read a square',
+    howTitle:'The windows sit where the keys sit',
+    howBody:'1 is the top left window, 5 is in the middle, 9 is the bottom right. Look at 12: red 1, orange 2, yellow 3, lime 4 and teal 6 light up, because you can count by each of them and land on 12.',
+    howTry:'Tap any square to try it yourself.',
+    place:v => {
+      const t = Math.floor(v / 10), o = v % 10;
+      const T = `${t} ${plural(t, 'ten', 'tens')}`, O = `${o} ${plural(o, 'one', 'ones')}`;
+      if (!t) return `${v} is ${O}.`;
+      if (!o) return `${v} is ${T}.`;
+      return `${v} is ${T} and ${O}.`;
+    },
+    lights:n => `Lights up ${n} of 9 windows`,
+    dotsCap:(r, c) => `${r} ${plural(r, 'row', 'rows')} of ${c} ${plural(c, 'dot', 'dots')}`,
+    jumps:(j, k, v) => `${j} ${plural(j, 'jump', 'jumps')} of ${k} ${plural(j, 'lands', 'land')} on ${v}`,
+    turnedOff:'(turned off)',
+    skipsOver:(ks, v) => `Counting by ${joinList(ks, 'or')} jumps right over ${v}.`,
+    oneNote:'1 is special. Every number lights up red, because you can always count by 1s.',
+    primeNote:v => `${v} is a <b>prime number</b>. The only way to make it is 1 × ${v}.`,
+    lineTitle:(isRow, i, hund) => !hund ? `The ${i + 1} times table` : isRow ? `Numbers ${i * 10 + 1} to ${i * 10 + 10}` : `Numbers ending in ${(i + 1) % 10}`,
+    lineSub:(isRow, i, hund, vals) => !hund ? `${vals.join(', ')}. Each step adds ${i + 1}.` : isRow ? 'Each step to the right adds 1.' : 'Each step down adds 10.',
+    row:'Row', col:'Column', every:'In every square:', howMany:'How many squares in this line light up each color:',
+    countingBy:k => `Counting by ${k}s`, jumpOf:(i, m) => `Jump ${i} of ${m}`, ready:'Ready...',
+    skipDone:(m, k) => `${m} jumps of ${k} reach ${m * k}. One more jump would be ${(m + 1) * k}, past the end of the grid.`,
+    notice:'Thing to notice',
+    ideas:[
+      { q:'What lights up with only 2 turned on?',
+        a:'Every other number lights up orange. These are the even numbers. They always end in 0, 2, 4, 6 or 8, so they make five stripes going down.' },
+      { q:'Where do the 5s go?',
+        a:'The green 5s make two straight lines, one under the 5 and one under the 10. Every number you land on counting by 5s ends in 5 or 0.' },
+      { q:'What shape do the 9s make?',
+        a:'The pink 9s walk down and to the left in a slanted line. Add the two digits of any of them: 1 + 8, 2 + 7, 3 + 6. You get 9 every time. (99 is sneaky: 9 + 9 = 18, and 1 + 8 = 9.)' },
+      { q:'Turn on 2 and 3. Who else shows up?',
+        a:'Wherever orange 2 and yellow 3 both light up, teal 6 lights up too. If you can count to a number by 2s and also by 3s, you can count to it by 6s.' },
+      { q:'Do the 4s and 8s get along?',
+        a:'Every purple 8 has a lime 4 next to it, because two jumps of 4 make one jump of 8. But only every other 4 gets an 8.' },
+      { q:'Which numbers are the loneliest?',
+        a:'The bright squares can only be made one way: 1 times the number itself. They are called prime numbers. Try making 7 dots into a rectangle. You can only make one long line.' },
+      { q:'Which number is the most colorful?',
+        a:'72 lights up 7 of its 9 windows. Only green 5 and blue 7 stay dark. No other number on the grid lights up that many.' },
+      { q:'Is the times table a mirror?',
+        a:'Fold the table along the glowing diagonal and every square lands on its twin. 3 × 4 and 4 × 3 are both 12. The diagonal holds the square numbers: 1, 4, 9, 16, 25, all the way to 100.' },
+    ],
+  },
+  es: {
+    title:'Múltiplos Arcoíris',
+    intro:'Cada cuadro tiene nueve ventanitas, una para cada número del 1 al 9. Una ventanita se enciende cuando, contando de ese número en ese número, llegas justo al número grande.',
+    colors:'Colores', keypadLabel:'Enciende o apaga los colores', allOn:'Todos', allOff:'Ninguno',
+    layoutLabel:'Tipo de cuadrícula', hundred:'1 al 100', times:'Tablas', showNums:'Mostrar números', startOver:'Empezar de nuevo',
+    hint:'Toca un cuadro para ver por qué se enciende. Toca los números de arriba o del lado para seguir una fila o una columna.',
+    skipTitle:'Contar saltando', skipDesc:'Elige un número y míralo saltar por la cuadrícula.', skipLabel:'Contar saltando de',
+    stop:'Parar', clear:'Borrar', more:'Más ↓', ideasTitle:'Cosas para observar', showMe:'Muéstrame', showing:'Mostrando', langLabel:'Idioma',
+    names:['rojo','naranja','amarillo','lima','verde','turquesa','azul','morado','rosa'],
+    colAria:(c, hund) => hund ? `Columna ${c}` : `Columna del ${c}`,
+    rowAria:(r, hund) => hund ? `Fila del ${r * 10 + 1} al ${r * 10 + 10}` : `Fila del ${r + 1}`,
+    cellAria:(v, lit) => `${v}. ${lit.length ? 'Encendidos: ' + lit.join(', ') : 'Ningún color encendido'}`,
+    skipAria:k => `Contar de ${k} en ${k}`,
+    howEyebrow:'Cómo leer un cuadro',
+    howTitle:'Las ventanitas están donde están las teclas',
+    howBody:'El 1 es la ventanita de arriba a la izquierda, el 5 está en el centro y el 9 abajo a la derecha. Mira el 12: se encienden el 1 rojo, el 2 naranja, el 3 amarillo, el 4 lima y el 6 turquesa, porque contando con cualquiera de ellos llegas al 12.',
+    howTry:'Toca cualquier cuadro para probarlo.',
+    place:v => {
+      const t = Math.floor(v / 10), o = v % 10;
+      const T = `${t} ${plural(t, 'decena', 'decenas')}`, O = `${o} ${plural(o, 'unidad', 'unidades')}`;
+      const verb = (t || o) === 1 ? 'es' : 'son';
+      if (!t) return `${v} ${verb} ${O}.`;
+      if (!o) return `${v} ${verb} ${T}.`;
+      return `${v} ${verb} ${T} y ${O}.`;
+    },
+    lights:n => `Enciende ${n} de 9 ventanitas`,
+    dotsCap:(r, c) => `${r} ${plural(r, 'fila', 'filas')} de ${c} ${plural(c, 'punto', 'puntos')}`,
+    jumps:(j, k, v) => `${j} ${plural(j, 'salto', 'saltos')} de ${k} ${plural(j, 'lleva', 'llevan')} al ${v}`,
+    turnedOff:'(apagado)',
+    skipsOver:(ks, v) => `Si cuentas ${joinList(ks.map(k => `de ${k} en ${k}`), 'o')}, te saltas el ${v}.`,
+    oneNote:'El 1 es especial. Todos los números encienden el rojo, porque siempre puedes contar de 1 en 1.',
+    primeNote:v => `El ${v} es un <b>número primo</b>. La única forma de formarlo es 1 × ${v}.`,
+    lineTitle:(isRow, i, hund) => !hund ? `La tabla del ${i + 1}` : isRow ? `Números del ${i * 10 + 1} al ${i * 10 + 10}` : `Números que terminan en ${(i + 1) % 10}`,
+    lineSub:(isRow, i, hund, vals) => !hund ? `${vals.join(', ')}. Cada paso suma ${i + 1}.` : isRow ? 'Cada paso a la derecha suma 1.' : 'Cada paso hacia abajo suma 10.',
+    row:'Fila', col:'Columna', every:'En todos los cuadros:', howMany:'Cuántos cuadros de esta línea encienden cada color:',
+    countingBy:k => `Contando de ${k} en ${k}`, jumpOf:(i, m) => `Salto ${i} de ${m}`, ready:'Listos...',
+    skipDone:(m, k) => `${m} saltos de ${k} llegan al ${m * k}. Un salto más sería ${(m + 1) * k}, y eso ya se sale de la cuadrícula.`,
+    notice:'Para observar',
+    ideas:[
+      { q:'¿Qué se enciende si solo dejas el 2?',
+        a:'Se enciende un número sí y uno no, en naranja. Son los números pares. Siempre terminan en 0, 2, 4, 6 u 8, así que forman cinco franjas hacia abajo.' },
+      { q:'¿Dónde quedan los 5?',
+        a:'Los 5 verdes forman dos líneas rectas, una debajo del 5 y otra debajo del 10. Todos los números a los que llegas contando de 5 en 5 terminan en 5 o en 0.' },
+      { q:'¿Qué figura forman los 9?',
+        a:'Los 9 rosas bajan hacia la izquierda en una línea inclinada. Suma las dos cifras de cualquiera: 1 + 8, 2 + 7, 3 + 6. ¡Siempre da 9! (El 99 es tramposo: 9 + 9 = 18, y 1 + 8 = 9.)' },
+      { q:'Enciende el 2 y el 3. ¿Quién más aparece?',
+        a:'Donde se encienden el 2 naranja y el 3 amarillo, también se enciende el 6 turquesa. Si puedes llegar a un número contando de 2 en 2 y también de 3 en 3, puedes llegar contando de 6 en 6.' },
+      { q:'¿Se llevan bien el 4 y el 8?',
+        a:'Cada 8 morado tiene un 4 lima al lado, porque dos saltos de 4 hacen un salto de 8. Pero solo uno de cada dos 4 tiene un 8.' },
+      { q:'¿Cuáles son los números más solitarios?',
+        a:'Los cuadros brillantes solo se pueden formar de una manera: 1 por el mismo número. Se llaman números primos. Intenta acomodar 7 puntos en un rectángulo. Solo puedes hacer una línea larga.' },
+      { q:'¿Cuál es el número con más colores?',
+        a:'El 72 enciende 7 de sus 9 ventanitas. Solo el 5 verde y el 7 azul se quedan apagados. Ningún otro número de la cuadrícula enciende tantas.' },
+      { q:'¿La tabla de multiplicar es un espejo?',
+        a:'Dobla la tabla por la diagonal brillante y cada cuadro cae sobre su gemelo. 3 × 4 y 4 × 3 dan 12. En la diagonal están los números cuadrados: 1, 4, 9, 16, 25, hasta llegar al 100.' },
+    ],
+  },
+};
+
+/* What each guided question sets up (same in every language) */
+const IDEAS = [
+  { active:[2], layout:'hundred' },
+  { active:[5], layout:'hundred' },
+  { active:[9], layout:'hundred' },
+  { active:[2,3,6], layout:'hundred' },
+  { active:[4,8], layout:'hundred' },
+  { active:K, layout:'hundred', spot:(r,c,v) => isPrime(v) },
+  { active:K, layout:'hundred', spot:(r,c,v) => v === 72 },
+  { active:K, layout:'times', spot:(r,c) => r === c },
+];
+
+/* Language: ?lang=es in the link wins, then the saved choice, then the browser language */
+function pickLang(){
+  try {
+    const q = new URLSearchParams(location.search).get('lang');
+    if (q && STR[q]) return q;
+  } catch (e) {}
+  try {
+    const saved = localStorage.getItem('rm-lang');
+    if (saved && STR[saved]) return saved;
+  } catch (e) {}
+  return (navigator.language || 'en').toLowerCase().startsWith('es') ? 'es' : 'en';
+}
+let lang = pickLang();
+const T = () => STR[lang];
+
+const fresh = () => ({ active:new Set(K), layout:'hundred', nums:true, cell:null, row:null, col:null, spot:null, idea:null, skip:null });
+let S = fresh();
+let timer = null;
+
+const val = (r, c) => S.layout === 'hundred' ? r * 10 + c + 1 : (r + 1) * (c + 1);
+
+/* Build the grid once */
+const board = document.getElementById('board');
+const corner = document.createElement('div');
+corner.className = 'corner';
+corner.setAttribute('aria-hidden', 'true');
+board.append(corner);
+const colH = [], rowH = [], cells = [];
+for (let c = 0; c < 10; c++) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'hd col'; b.id = 'col-' + c;
+  b.addEventListener('click', () => pickLine('col', c));
+  board.append(b); colH.push(b);
+}
+for (let r = 0; r < 10; r++) {
+  const h = document.createElement('button');
+  h.type = 'button'; h.className = 'hd row'; h.id = 'row-' + r;
+  h.addEventListener('click', () => pickLine('row', r));
+  board.append(h); rowH.push(h);
+  cells[r] = [];
+  for (let c = 0; c < 10; c++) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'cell'; b.id = `cell-${r}-${c}`;
+    const n = document.createElement('span'); n.className = 'num';
+    const w = document.createElement('span'); w.className = 'win'; w.setAttribute('aria-hidden', 'true');
+    const wins = K.map(() => { const i = document.createElement('i'); w.append(i); return i; });
+    b.append(n, w);
+    b.addEventListener('click', () => pickCell(r, c));
+    board.append(b);
+    cells[r][c] = { b, n, wins };
+  }
+}
+
+/* Keypad */
+const keypad = document.getElementById('keypad');
+const keys = K.map(k => {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'key'; b.id = 'key-' + k;
+  b.style.setProperty('--ck', `var(--c${k})`);
+  b.innerHTML = `${k}<small></small>`;
+  b.addEventListener('click', () => {
+    stopSkip(); clearGuides();
+    S.active.has(k) ? S.active.delete(k) : S.active.add(k);
+    render();
+  });
+  keypad.append(b);
+  return b;
+});
+
+/* Skip count chips */
+const skipkeys = document.getElementById('skipkeys');
+const skipBtns = K.map(k => {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'sk'; b.id = 'sk-' + k; b.textContent = k;
+  b.style.setProperty('--ck', `var(--c${k})`);
+  b.addEventListener('click', () => startSkip(k));
+  skipkeys.append(b);
+  return b;
+});
+const stopBtn = document.getElementById('stop');
+stopBtn.addEventListener('click', () => { stopSkip(); render(); });
+
+/* Ideas */
+const ideasEl = document.getElementById('ideas');
+const ideaItems = IDEAS.map((idea, i) => {
+  const li = document.createElement('li');
+  const p = document.createElement('p');
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'btn'; b.id = 'idea-' + i;
+  b.addEventListener('click', () => applyIdea(i));
+  li.append(p, b);
+  ideasEl.append(li);
+  return { li, p, b };
+});
+
+document.getElementById('all').addEventListener('click', () => { stopSkip(); clearGuides(); S.active = new Set(K); render(); });
+document.getElementById('none').addEventListener('click', () => { stopSkip(); clearGuides(); S.active = new Set(); render(); });
+document.getElementById('nums').addEventListener('change', e => { S.nums = e.target.checked; render(); });
+document.getElementById('reset').addEventListener('click', () => { stopSkip(); S = fresh(); document.getElementById('nums').checked = true; render(); });
+document.querySelectorAll('#layout-seg button').forEach(b => b.addEventListener('click', () => {
+  if (S.layout === b.dataset.layout) return;
+  stopSkip(); clearGuides(); S.cell = null; S.row = null; S.col = null;
+  S.layout = b.dataset.layout; render();
+}));
+document.querySelectorAll('#lang button').forEach(b => b.addEventListener('click', () => setLang(b.dataset.lang)));
+
+function setLang(next){
+  if (!STR[next]) return;
+  lang = next;
+  try { localStorage.setItem('rm-lang', lang); } catch (e) {}
+  try {
+    const u = new URL(location.href);
+    if (lang === 'en') u.searchParams.delete('lang'); else u.searchParams.set('lang', lang);
+    history.replaceState(null, '', u);
+  } catch (e) {}
+  applyLang();
+}
+
+function applyLang(){
+  const t = T();
+  document.documentElement.lang = lang;
+  document.title = t.title;
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t[el.dataset.i18n]; });
+  document.getElementById('lang').setAttribute('aria-label', t.langLabel);
+  document.querySelectorAll('#lang button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
+  keypad.setAttribute('aria-label', t.keypadLabel);
+  document.getElementById('layout-seg').setAttribute('aria-label', t.layoutLabel);
+  skipkeys.setAttribute('aria-label', t.skipLabel);
+  document.getElementById('peek-go').textContent = t.more;
+  keys.forEach((b, i) => {
+    b.querySelector('small').textContent = t.names[i];
+    b.setAttribute('aria-label', `${i + 1}, ${t.names[i]}`);
+  });
+  skipBtns.forEach((b, i) => b.setAttribute('aria-label', t.skipAria(i + 1)));
+  ideaItems.forEach(({ p }, i) => { p.textContent = t.ideas[i].q; });
+  render();
+}
+
+function clearGuides(){ S.idea = null; S.spot = null; }
+
+function pickLine(kind, i){
+  stopSkip(); clearGuides();
+  S[kind] = S[kind] === i ? null : i;
+  S.cell = (S.row !== null && S.col !== null) ? { r:S.row, c:S.col } : null;
+  render();
+}
+
+function pickCell(r, c){
+  stopSkip();
+  const same = S.cell && S.cell.r === r && S.cell.c === c;
+  S.cell = same ? null : { r, c };
+  S.row = null; S.col = null;
+  render();
+}
+
+function applyIdea(i){
+  stopSkip();
+  const idea = IDEAS[i];
+  S.active = new Set(idea.active); S.layout = idea.layout; S.spot = idea.spot || null;
+  S.cell = null; S.row = null; S.col = null; S.idea = i;
+  render();
+  showBoard();
+}
+
+const narrowMQ = matchMedia('(max-width: 899px)');
+function showBoard(){
+  if (!narrowMQ.matches) return;
+  const r = document.getElementById('boardwrap').getBoundingClientRect();
+  if (r.top < 0 || r.top > innerHeight * 0.5) {
+    document.getElementById('boardwrap').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block:'start' });
+  }
+}
+
+function startSkip(k){
+  stopSkip();
+  S.cell = null; S.row = null; S.col = null; clearGuides();
+  S.skip = { k, i:0, done:false };
+  showBoard();
+  const max = Math.floor(100 / k);
+  const speed = k === 1 ? 260 : k === 2 ? 380 : 560;
+  render();
+  timer = setInterval(() => {
+    S.skip.i++;
+    if (S.skip.i >= max) { S.skip.done = true; clearInterval(timer); timer = null; }
+    render();
+  }, speed);
+}
+function stopSkip(){
+  if (timer) { clearInterval(timer); timer = null; }
+  S.skip = null;
+}
+
+function render(){
+  const t = T(), hund = S.layout === 'hundred';
+  corner.textContent = hund ? '+' : '×';
+  colH.forEach((b, c) => {
+    b.textContent = c + 1;
+    b.setAttribute('aria-pressed', String(S.col === c));
+    b.setAttribute('aria-label', t.colAria(c + 1, hund));
+  });
+  rowH.forEach((b, r) => {
+    b.textContent = hund ? r * 10 : r + 1;
+    b.setAttribute('aria-pressed', String(S.row === r));
+    b.setAttribute('aria-label', t.rowAria(r, hund));
+  });
+
+  const sk = S.skip;
+  const reach = sk ? sk.k * sk.i : 0;
+  const line = S.row !== null || S.col !== null;
+  for (let r = 0; r < 10; r++) for (let c = 0; c < 10; c++) {
+    const v = val(r, c), cell = cells[r][c];
+    cell.n.textContent = v;
+    const lit = [];
+    K.forEach((k, i) => {
+      const on = sk ? (k === sk.k && v % k === 0 && v <= reach) : (S.active.has(k) && v % k === 0);
+      cell.wins[i].style.background = on ? `var(--c${k})` : '';
+      if (on) lit.push(k);
+    });
+    let dim = false;
+    if (sk) dim = !(v % sk.k === 0 && v <= reach);
+    else {
+      if (S.spot && !S.spot(r, c, v)) dim = true;
+      if (line && r !== S.row && c !== S.col) dim = true;
+    }
+    cell.b.classList.toggle('dim', dim);
+    cell.b.classList.toggle('sel', !!(S.cell && S.cell.r === r && S.cell.c === c));
+    cell.b.classList.toggle('now', !!(sk && sk.i > 0 && v === reach));
+    cell.b.setAttribute('aria-label', t.cellAria(v, lit));
+  }
+  board.classList.toggle('hide-nums', !S.nums);
+
+  keys.forEach((b, i) => b.setAttribute('aria-pressed', String(S.active.has(i + 1))));
+  document.querySelectorAll('#layout-seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.layout === S.layout)));
+  skipBtns.forEach((b, i) => b.setAttribute('aria-pressed', String(!!(sk && sk.k === i + 1))));
+  stopBtn.hidden = !sk;
+  stopBtn.textContent = sk && sk.done ? t.clear : t.stop;
+  ideaItems.forEach(({ li, b }, i) => { li.classList.toggle('on', S.idea === i); b.textContent = S.idea === i ? t.showing : t.showMe; });
+
+  renderInfo();
+  updatePeek();
+}
+
+const info = document.getElementById('info');
+function renderInfo(){
+  const t = T();
+  let h;
+  if (S.skip) h = skipInfo();
+  else if (S.cell) h = cellInfo(S.cell.r, S.cell.c);
+  else if (S.row !== null || S.col !== null) h = lineInfo();
+  else if (S.idea !== null) h = `<p class="eyebrow">${t.notice}</p><h3>${t.ideas[S.idea].q}</h3><p>${t.ideas[S.idea].a}</p>`;
+  else h = `<p class="eyebrow">${t.howEyebrow}</p><h3>${t.howTitle}</h3><p>${t.howBody}</p><p class="muted">${t.howTry}</p>`;
+  info.innerHTML = h;
+}
+
+function cellInfo(r, c){
+  const t = T(), v = val(r, c), hund = S.layout === 'hundred';
+  const ks = K.filter(k => v % k === 0), no = K.filter(k => v % k !== 0);
+  let h = `<div class="big">${v}</div><p class="lead">${t.lights(ks.length)}</p>`;
+  if (hund) h += `<p class="muted">${t.place(v)}</p>`;
+  else h += `<p><b>${r + 1} × ${c + 1} = ${v}</b></p><div class="dots" style="--cols:${c + 1}" aria-hidden="true">${'<i></i>'.repeat(v)}</div><p class="muted small">${t.dotsCap(r + 1, c + 1)}</p>`;
+  h += `<ul class="facts">${ks.map(k => {
+    const on = S.active.has(k);
+    return `<li class="${on ? '' : 'off'}">${chip(k)}<span>${t.jumps(v / k, k, v)}${on ? '' : ` <em>${t.turnedOff}</em>`}</span></li>`;
+  }).join('')}</ul>`;
+  if (no.length) h += `<p class="muted">${t.skipsOver(no, v)}</p>`;
+  if (v === 1) h += `<p class="note">${t.oneNote}</p>`;
+  else if (isPrime(v)) h += `<p class="note">${t.primeNote(v)}</p>`;
+  return h;
+}
+
+function lineTitle(){
+  const isRow = S.row !== null;
+  return T().lineTitle(isRow, isRow ? S.row : S.col, S.layout === 'hundred');
+}
+
+function lineInfo(){
+  const t = T(), hund = S.layout === 'hundred', isRow = S.row !== null, i = isRow ? S.row : S.col;
+  const vals = Array.from({ length:10 }, (_, j) => isRow ? val(i, j) : val(j, i));
+  const every = K.filter(k => vals.every(v => v % k === 0));
+  const bars = K.map(k => {
+    const n = vals.filter(v => v % k === 0).length;
+    return `<div class="bar-row ${S.active.has(k) ? '' : 'off'}">${chip(k)}<span class="track"><span class="fill" style="--ck:var(--c${k});width:${n * 10}%"></span></span><span>${n}</span></div>`;
+  }).join('');
+  return `<p class="eyebrow">${isRow ? t.row : t.col}</p><h3>${lineTitle()}</h3>
+    <p class="muted">${t.lineSub(isRow, i, hund, vals)}</p>
+    <p>${t.every} <span class="chips">${every.map(chip).join('')}</span></p>
+    <p class="small muted" style="margin-bottom:0">${t.howMany}</p>
+    <div class="bars">${bars}</div>`;
+}
+
+function skipInfo(){
+  const t = T(), { k, i, done } = S.skip, max = Math.floor(100 / k);
+  const seq = Array.from({ length:i }, (_, j) => (j + 1) * k);
+  let h = `<p class="eyebrow">${t.countingBy(k)}</p>
+    <div class="big" style="--ck:var(--c${k})"><span class="sw"></span>${i * k}</div>
+    <p class="lead">${t.jumpOf(i, max)}</p>
+    <p class="seq">${seq.length ? seq.join(', ') : t.ready}</p>`;
+  if (done) h += `<p class="note">${t.skipDone(max, k)}</p>`;
+  return h;
+}
+
+/* Summary bar for phones and tablets */
+const peek = document.getElementById('peek'), peekMain = document.getElementById('peek-main');
+let infoVisible = false;
+if ('IntersectionObserver' in window) {
+  new IntersectionObserver(es => { infoVisible = es[0].isIntersecting; updatePeek(); }, { threshold:0.3 }).observe(info);
+}
+document.getElementById('peek-go').addEventListener('click', () => {
+  info.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block:'start' });
+});
+narrowMQ.addEventListener('change', updatePeek);
+function updatePeek(){
+  const t = T();
+  let h = '';
+  if (S.skip) {
+    const { k, i } = S.skip;
+    h = `${chip(k)}<span>${t.countingBy(k)}</span><span class="n">${i * k}</span>`;
+  } else if (S.cell) {
+    const v = val(S.cell.r, S.cell.c);
+    const lit = K.filter(k => v % k === 0 && S.active.has(k));
+    h = `<span class="n">${v}</span><span class="chips">${lit.map(chip).join('')}</span>`;
+  } else if (S.row !== null || S.col !== null) {
+    h = `<span>${lineTitle()}</span>`;
+  } else if (S.idea !== null) {
+    h = `<span>${t.ideas[S.idea].q}</span>`;
+  }
+  if (h) peekMain.innerHTML = h;
+  peek.hidden = !narrowMQ.matches || !h || infoVisible;
+}
+
+applyLang();
+</script>
+</body>
+</html>
